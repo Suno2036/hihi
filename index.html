@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Приложение FemFit</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F0F4F8; /* Lighter background */
+        }
+        .main-container {
+            max-width: 420px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Stronger shadow */
+            border-radius: 12px; /* Rounded container */
+            overflow: hidden; /* Ensures rounded corners clip content */
+        }
+        /* Hide scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Accordion styles */
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        details .arrow {
+            transition: transform 0.2s ease-in-out;
+        }
+        details[open] .arrow {
+            transform: rotate(90deg);
+        }
+        /* Message Box Styles */
+        .message-box {
+            position: fixed;
+            bottom: 100px; /* Adjust as needed to be above the nav */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50; /* Green */
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden; /* Added visibility for smoother transition */
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .message-box.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Darker overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 24px;
+            border-radius: 16px; /* More rounded */
+            max-width: 380px;
+            width: 90%;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3); /* Stronger shadow */
+            position: relative;
+            transform: translateY(20px); /* Slight animation on show */
+            transition: transform 0.3s ease-out;
+        }
+        .modal.show .modal-content {
+            transform: translateY(0);
+        }
+        .close-modal-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        .close-modal-btn:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #8b5cf6; /* purple-500 */
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-200 flex justify-center">
+
+    <div id="app-container" class="bg-white main-container shadow-lg">
+        <!-- Main Content Area -->
+        <main class="flex-grow overflow-y-auto no-scrollbar p-6 pb-24">
+            
+            <!-- Home Screen -->
+            <div id="home-screen">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-800">Тренировки</h1>
+                    <p class="text-gray-500">Выберите программу для начала</p>
+                </header>
+                <div class="space-y-3" id="workout-list">
+                    <!-- Accordion will be injected here by JS -->
+                </div>
+            </div>
+
+            <!-- Start Workout Confirmation Screen -->
+            <div id="start-workout-screen" class="hidden flex flex-col items-center justify-center h-full text-center p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Начать тренировку?</h2>
+                <p id="confirm-workout-title" class="text-xl text-purple-600 font-semibold mb-8"></p>
+                <button id="start-workout-btn" class="bg-purple-600 text-white text-lg font-bold py-4 px-8 rounded-full shadow-lg hover:bg-purple-700 transition-transform active:scale-95">
+                    Начать тренировку
+                </button>
+                <button id="cancel-start-btn" class="mt-4 text-gray-500 hover:text-purple-600 font-medium">
+                    Отмена
+                </button>
+            </div>
+
+            <!-- Workout Screen -->
+            <div id="workout-screen" class="hidden">
+                 <!-- Button to go back to home screen without saving analytics -->
+                 <button id="back-to-home" class="absolute top-4 left-4 text-gray-500 hover:text-purple-600 z-10 p-2 bg-white/50 rounded-full backdrop-blur-sm flex items-center gap-1 pr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    <span class="text-sm font-medium">Назад</span>
+                </button>
+                <h2 id="workout-title" class="text-xl font-bold text-gray-800 mt-4 mb-2 px-4 text-center"></h2>
+                
+                <!-- Video Player -->
+                <div id="video-container" class="bg-gray-900 rounded-2xl h-64 flex items-center justify-center my-4 overflow-hidden">
+                    <!-- Iframe will be injected here -->
+                </div>
+
+                <!-- Play/Pause Button -->
+                <div class="flex justify-center items-center gap-6 my-6">
+                     <button id="play-pause-btn" class="p-6 bg-purple-600 rounded-full text-white shadow-lg hover:bg-purple-700 transition-transform active:scale-95">
+                        <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" class="hidden"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                    </button>
+                </div>
+                <!-- New prominent End Workout button -->
+                <div class="flex justify-center mt-8">
+                    <button id="end-workout-main-btn" class="bg-red-500 text-white text-lg font-bold py-4 px-8 rounded-full shadow-lg hover:bg-red-600 transition-transform active:scale-95">
+                        Завершить тренировку
+                    </button>
+                </div>
+            </div>
+
+            <!-- Analytics Screen -->
+            <div id="analytics-screen" class="hidden">
+                 <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-800">Аналитика</h1>
+                    <p class="text-gray-500">Ваш прогресс в минутах</p>
+                </header>
+                <div class="space-y-6">
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div class="bg-pink-100 p-4 rounded-xl">
+                            <p class="text-sm text-pink-700">Тренировок</p>
+                            <p id="stats-workouts" class="text-2xl font-bold text-pink-900">0</p>
+                        </div>
+                         <div class="bg-purple-100 p-4 rounded-xl">
+                            <p class="text-sm text-purple-700">Всего минут</p>
+                            <p id="stats-minutes" class="text-2xl font-bold text-purple-900">0</p>
+                        </div>
+                    </div>
+                    <div>
+                         <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nutrition Screen -->
+            <div id="nutrition-screen" class="hidden flex-col">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-800">Рацион питания</h1>
+                    <p class="text-gray-500">Ваш ежедневный план питания</p>
+                </header>
+
+                <div class="mb-6">
+                    <label for="nutrition-date-filter" class="block text-sm font-medium text-gray-700 mb-2">Выберите дату:</label>
+                    <input type="date" id="nutrition-date-filter" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                </div>
+
+                <!-- Daily Calorie Summary -->
+                <div class="bg-purple-100 p-4 rounded-xl shadow-md mb-6 text-center">
+                    <p class="text-sm text-purple-700">Всего калорий за день:</p>
+                    <p id="daily-calories-total" class="text-2xl font-bold text-purple-900">0 ккал</p>
+                </div>
+
+                <!-- Dietitian Recommendations Section -->
+                <div class="bg-blue-50 p-4 rounded-xl shadow-md mb-6">
+                    <h2 class="text-xl font-bold text-blue-800 mb-3">Рекомендации диетолога</h2>
+                    <ul class="list-disc list-inside text-gray-700 space-y-2 text-sm">
+                        <li>Темп снижения веса: плавно, 5-10% за 3-6 месяцев.</li>
+                        <li>Основные приемы пищи (завтрак, обед, ужин) и 1-2 перекуса по необходимости.</li>
+                        <li>**Правило тарелки:**
+                            <ul class="list-circle list-inside ml-4">
+                                <li>1/4 тарелки: белки (мясо, рыба, птица, яйца, творог, грибы).</li>
+                                <li>1/4 тарелки: сложные углеводы (овсянка, гречка, рис, макароны, картофель).</li>
+                                <li>1/2 тарелки: овощи и зелень (кроме картофеля).</li>
+                                <li>1 ст. ложка растительного масла (оливковое, льняное).</li>
+                            </ul>
+                        </li>
+                        <li>Пейте 1.5-2 литра чистой воды в день.</li>
+                        <li>Избегайте сладких напитков и десертов (до 10% от калорийности).</li>
+                        <li>Предпочитаемые способы приготовления: запекание, тушение, на пару.</li>
+                        <li>Питайтесь по чувству голода и сытости (шкала 1-10).</li>
+                        <li>Интервалы между приемами пищи: 3-5 часов.</li>
+                        <li>Включите регулярную физическую активность.</li>
+                    </ul>
+                </div>
+
+                <div id="meal-list" class="space-y-4 mb-6 flex-grow overflow-y-auto no-scrollbar">
+                    <!-- Meals will be injected here -->
+                    <p id="no-meals-message" class="text-gray-500 text-center hidden pt-8">На эту дату нет записей о питании.</p>
+                </div>
+
+                <!-- New button for Gemini API integration -->
+                <button id="get-nutrition-recommendations-btn" class="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-lg font-bold py-3 rounded-full shadow-lg hover:from-purple-600 hover:to-indigo-600 transition-all active:scale-95 mb-4">
+                    ✨ Анализ рациона и рекомендации
+                </button>
+
+                <!-- New button for meal plan from ingredients -->
+                <button id="get-meal-plan-from-ingredients-btn" class="w-full bg-gradient-to-r from-blue-500 to-sky-500 text-white text-lg font-bold py-3 rounded-full shadow-lg hover:from-blue-600 hover:to-sky-600 transition-all active:scale-95 mb-4">
+                    🍽️ Предложить план питания по продуктам
+                </button>
+
+                <button id="add-meal-btn" class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white text-lg font-bold py-3 rounded-full shadow-lg hover:from-green-600 hover:to-teal-600 transition-all active:scale-95">
+                    Добавить прием пищи
+                </button>
+            </div>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <footer class="absolute bottom-0 left-0 right-0 w-full max-w-[420px] mx-auto bg-white/90 backdrop-blur-lg border-t border-gray-200 rounded-b-xl">
+            <nav class="flex justify-around items-center p-2">
+                <button data-screen="home-screen" class="nav-btn flex flex-col items-center text-purple-600 w-24 py-2 rounded-lg transition-colors hover:bg-gray-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                    <span class="text-xs font-medium">Тренировки</span>
+                </button>
+                <button data-screen="analytics-screen" class="nav-btn flex flex-col items-center text-gray-500 hover:text-purple-600 w-24 py-2 rounded-lg transition-colors hover:bg-gray-100">
+                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    <span class="text-xs font-medium">Аналитика</span>
+                </button>
+                <button data-screen="nutrition-screen" class="nav-btn flex flex-col items-center text-gray-500 hover:text-purple-600 w-24 py-2 rounded-lg transition-colors hover:bg-gray-100">
+                    <!-- Fork and Knife Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h.01"/><path d="M17 7h.01"/><path d="M17 3v4H3v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V3h-4z"/></svg>
+                    <span class="text-xs font-medium">Рацион</span>
+                </button>
+            </nav>
+        </footer>
+        
+        <!-- Custom Message Box -->
+        <div id="message-box" class="message-box hidden">
+            <p>Пожалуйста, нажмите кнопку "Воспроизвести" на видеоплеере Rutube.</p>
+        </div>
+
+        <!-- Add Meal Modal -->
+        <div id="add-meal-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-modal-btn" id="close-add-meal-modal">&times;</button>
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Добавить прием пищи</h3>
+                <form id="add-meal-form" class="space-y-4">
+                    <div>
+                        <label for="meal-name" class="block text-sm font-medium text-gray-700">Название приема пищи:</label>
+                        <input type="text" id="meal-name" name="mealName" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label for="meal-time" class="block text-sm font-medium text-gray-700">Время:</label>
+                        <input type="time" id="meal-time" name="mealTime" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+                    <div>
+                        <label for="meal-description" class="block text-sm font-medium text-gray-700">Описание:</label>
+                        <textarea id="meal-description" name="mealDescription" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-4 mt-6">
+                        <button type="button" id="cancel-add-meal" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">Отмена</button>
+                        <button type="submit" class="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-md hover:from-green-600 hover:to-teal-600 transition-colors">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Nutrition Recommendations Modal -->
+        <div id="nutrition-recommendations-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-modal-btn" id="close-nutrition-recommendations-modal">&times;</button>
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Анализ рациона и рекомендации</h3>
+                <div id="recommendations-content" class="text-gray-700 space-y-3">
+                    <div id="recommendations-loading" class="flex justify-center items-center py-8 hidden">
+                        <div class="spinner"></div>
+                        <p class="ml-4 text-gray-600">Анализирую ваш рацион...</p>
+                    </div>
+                    <p id="recommendations-overall-assessment" class="font-semibold text-lg"></p>
+                    <p id="recommendations-macronutrients"></p>
+                    <p id="recommendations-suggestion" class="italic text-sm"></p>
+                    <p id="recommendations-error" class="text-red-600 hidden">Ошибка при получении рекомендаций. Пожалуйста, попробуйте еще раз.</p>
+                </div>
+                <div class="flex justify-end mt-6">
+                    <button type="button" id="ok-nutrition-recommendations" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">ОК</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Meal Plan From Ingredients Modal -->
+        <div id="meal-plan-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-modal-btn" id="close-meal-plan-modal">&times;</button>
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Предложить план питания</h3>
+                <form id="meal-plan-form" class="space-y-4">
+                    <div>
+                        <label for="available-ingredients" class="block text-sm font-medium text-gray-700">Доступные продукты (через запятую):</label>
+                        <textarea id="available-ingredients" name="availableIngredients" rows="4" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Например: курица, рис, брокколи, яйца, молоко"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-4 mt-6">
+                        <button type="button" id="cancel-meal-plan" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">Отмена</button>
+                        <button type="submit" id="submit-meal-plan" class="px-4 py-2 bg-gradient-to-r from-blue-500 to-sky-500 text-white rounded-md hover:from-blue-600 hover:to-sky-600 transition-colors">
+                            Получить предложения
+                        </button>
+                    </div>
+                </form>
+                <div id="meal-plan-results" class="mt-6 space-y-4 hidden">
+                    <div id="meal-plan-loading" class="flex justify-center items-center py-8 hidden">
+                        <div class="spinner"></div>
+                        <p class="ml-4 text-gray-600">Генерирую план питания...</p>
+                    </div>
+                    <div id="meal-plan-display" class="space-y-4">
+                        <!-- Meal plan suggestions will be inserted here -->
+                    </div>
+                    <p id="meal-plan-notes" class="text-sm text-gray-600 italic mt-4"></p>
+                    <p id="meal-plan-error" class="text-red-600 hidden">Ошибка при получении плана питания. Пожалуйста, попробуйте еще раз.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // --- GLOBAL VARIABLES ---
+        let chartInstance = null; // Defined globally for Chart.js instance
+
+        // --- STATE MANAGEMENT ---
+        const state = {
+            currentScreen: 'home-screen',
+            currentVideo: null,
+            isTimerRunning: false,
+            timerId: null,
+            timeElapsed: 0, // in seconds
+            analytics: JSON.parse(localStorage.getItem('femfitAnalytics')) || {
+                workoutsCompleted: 0,
+                totalSecondsTrained: 0,
+                history: [0, 0, 0, 0, 0, 0, 0], // weekly history in seconds
+                lastAnalyticsResetDate: new Date().toISOString().split('T')[0] // Store as YYYY-MM-DD
+            },
+            nutritionPlans: {}, // Object to store nutrition plans, keyed by date (YYYY-MM-DD)
+            selectedNutritionDate: new Date().toISOString().split('T')[0], // Default to today
+        };
+
+        // --- DOM ELEMENTS (declared globally, assigned in DOMContentLoaded) ---
+        let messageBox;
+        let confirmWorkoutTitle; // For workout confirmation screen
+        let workoutTitle; // For workout screen
+        let videoContainer; // For workout screen
+        let playIcon; // For play/pause button
+        let pauseIcon; // For play/pause button
+
+        // DOM elements for Nutrition
+        let nutritionDateFilter;
+        let mealListContainer;
+        let noMealsMessage;
+        let addMealModal;
+        let addMealForm;
+        let dailyCaloriesTotalElement; // New element for daily calorie total
+
+        // New DOM elements for LLM recommendations
+        let getNutritionRecommendationsBtn;
+        let nutritionRecommendationsModal;
+        let closeNutritionRecommendationsModalBtn;
+        let okNutritionRecommendationsBtn;
+        let recommendationsContent;
+        let recommendationsLoading;
+        let recommendationsOverallAssessment;
+        let recommendationsMacronutrients;
+        let recommendationsSuggestion;
+        let recommendationsError;
+
+        // New DOM elements for Meal Plan from Ingredients
+        let getMealPlanFromIngredientsBtn;
+        let mealPlanModal;
+        let closeMealPlanModalBtn;
+        let mealPlanForm;
+        let availableIngredientsInput;
+        let submitMealPlanBtn;
+        let cancelMealPlanBtn;
+        let mealPlanResults;
+        let mealPlanLoading;
+        let mealPlanDisplay;
+        let mealPlanNotes;
+        let mealPlanError;
+
+
+        // --- DATA & CONFIG (can be global) ---
+        const videoData = {
+             "Шпагаты": [
+                { name: "Растяжка на продольный шпагат | Для любого уровня подготовки | 10 минут", videoId: "cd63865a80342902b31a4053b22266a2" },
+                { name: "Растяжка для задней поверхности бедра | Растяжка ног для складки", videoId: "944d5f626929500d44de76dcd82299ba" },
+                { name: "Растяжка на поперечный шпагат дома | Работа над ТБС и эластичностью внутренней поверхности бедра", videoId: "edc818d0a88a45ede658fe6ce5fd04c6" },
+            ],
+            "Зарядка": [
+                { name: "Зарядка стоя 7 минут | Утренний комплекс упражнений без слов", videoId: "b81384b5792804b968ebab41b8d5a07e" },
+                { name: "Утренняя зарядка на все тело | Комплекс на каждый день | 12 минут", videoId: "a104625a76d394a9f29550c303f4d5a1" },
+                { name: "Зарядка стоя | Утренняя разминка без коврика | 5 минут", videoId: "e65f896c051d2e646ee498dc84b59ef0" },
+                { name: "Спокойная зарядка для комфортного пробуждения | Утренняя зарядка 10 минут", videoId: "2ed335fa82902965222476d3efe49620" },
+                { name: "Утренний комплекс от отеков | Убираем лишнюю воду💦", videoId: "139dc7f1499de4cf93d1f59e3da5e248" },
+                { name: "Мягкий комплекс для тела | Тренировка когда нет сил", videoId: "e55b93e3f467cd983e7868f89f61d725" },
+                { name: "Утренняя разминка стоя у стены | Зарядка без коврика | 10 минут", videoId: "4efb01dcbcdb961e629c6dbb0fe50e39" },
+                { name: "Лимфодренажная зарядка | Тренировка от отеков | 10 минут", videoId: "6996625ee64d475a583e325538049bfb" },
+                { name: "Комплекс для приятного пробуждения | Утренняя зарядка для всего тела 13 минут", videoId: "0de0b79afd858f4458b7498470feb9f3" },
+                { name: "Утренняя зарядка 20 минут | Зарядка с МФР-роллом", videoId: "a7d727c5c468d6727046046308991547" },
+                { name: "Утренняя зарядка | 20 минут | спокойная утренняя разминка", videoId: "dee53d636658f852f80e205bbd3faf6b" },
+                { name: "Утренняя зарядка 7 минут | Приятная растяжка на все тело", videoId: "8907f968aa84c8ae8b481f2ea8329dcd" },
+                { name: "Зарядка для тонуса мышц | Энергия на целый день | Тренировка для красивого и подтянутого тела", videoId: "d964ae0e6b161ae6f858177b0e933f34" },
+                { name: "ЗАРЯДКА СТОЯ | 7 МИНУТ | БЕЗ КОВРИКА | простая утренняя зарядка", videoId: "23c02f0b7d998be89d331381081902b2" },
+                { name: "Утренняя зарядка | morning workout | 10 min | no words, only music", videoId: "5a6f195ac8501a46f2ec35a70d564393" },
+            ],
+            "Пилатес": [
+                { name: "Пилатес на все тело для начального уровня | Мягкая силовая тренировка без нагрузки на колени", videoId: "bb9547fc08b6159a18e208e6d1dd2e80" },
+                { name: "Тренировка для внутренней поверхности бедра | Пилатес для подтянутых бедер", videoId: "73b50504d5cf18ab66e7c26a7e46fca6" },
+                { name: "Пилатес с гантелями на все тело | Домашняя силовая тренировка", videoId: "925f575ec5317b03d0ed8079f52e3060" },
+                { name: "Пилатес на все тело | Красивая и подтянутая фигура в домашних условиях | 40 минут", videoId: "7b742d662f47ef775274f0aa663568fc" },
+                { name: "Пилатес на все тело с мячом | Мягкая силовая тренировка 20 минут", videoId: "51135cb85375d0882bc5b107148c0db0" },
+                { name: "Пилатес на все тело | Красивая и женственная фигура за 20 минут", videoId: "377d02b7edc55df2964cf423be01edf4" },
+                { name: "Пилатес на все тело | Занятие из коллекции упражнений Дж. Пилатеса", videoId: "32230d4b5bac5fd95fce6c5ca0789775" },
+                { name: "Пилатес на все тело | Мягкая силовая тренировка дома 10 минут", videoId: "2e7ade6f1e83c09f2c9e332e2d4a623a" },
+                { name: "Пилатес на все тело | Мягкая силовая тренировка дома 20 минут", videoId: "bda9d85320b274e6c3f9d3a59274f953" },
+                { name: "Эффективная тренировка в стиле пилатес | Пилатес для ягодиц в домашних условиях", videoId: "1f6344e707381c5742fec4727829c173" },
+                { name: "Пилатес на все тело | Мягкая силовая тренировка дома 30 минут", videoId: "5a9f0a52248440cb450f838f0c9b78de" },
+                { name: "Пилатес для кора и ягодиц | Тренировка в домашних условиях | Эффективные упражнения из пилатеса", videoId: "d48775e92070136d5a68b228d9468b20" },
+                { name: "Пилатес на все тело | Спокойная тренировка в домашних условиях| 20 минут", videoId: "922f6985b0791112dbf23a765c2b2932" },
+                { name: "Пилатес для красивой и подтянутой фигуры | Мягкая силовая тренировка на все тело", videoId: "13a059fbab5bb9ddb278ca2684d00b8a" },
+                { name: "Классический Пилатес для начального уровня | Работа над осанкой, мышцами кора и дыханием", videoId: "e587a4d593305ce268150ee755e521ce" },
+                { name: "Пилатес для красивой фигуры | Приятная силовая на все тело | 15 минут", videoId: "59bbff17e58a0326cae80e2488769e95" },
+                { name: "15 MIN PILATES WORKOUT | At-home Pilates (No Equipment, No Words)", videoId: "7a00de52f254bccd9b14cc9cdd40740c" },
+            ],
+            "Здоровая спина": [
+                { name: "Ровная осанка и здоровая спина | Убери сутулость и завернутые плечи", videoId: "64572be8d884226ff44a39f90b121a0f" },
+                { name: "Упражнения для шеи и плеч за рабочим местом | Убери напряжение в шее и спине за 5 минут", videoId: "3d17a6e1e39caf9ea960d435949e94ff" },
+                { name: "Убираем холку | Комплекс упражнений для шейно-воротниковой зоны", videoId: "9715a5a10b1a0e069c694340ddc47323" },
+                { name: "Здоровая осанка | Тренировка для силы и гибкости спины", videoId: "b9db77232e9c35a4d128460db6d5bcca" },
+                { name: "Раскрытие грудного отдела позвоночника | Красивая осанка и свободное дыхание с МФР-роллом", videoId: "4f1d3391ff74117f57f238672278ed84" },
+                { name: "Упражнения от боли в пояснице с МФР-роллом | Эффективная тренировка для расслабления поясницы", videoId: "f2f74d88ba070cc2cb1373498ae342de" },
+                { name: "Тренировка для тонуса мышц спины и красивой осанки | Укрепление мышц спины", videoId: "72195aa9d98c528a05f31c7f674266b4" },
+                { name: "Здоровая и красивая спина в домашних условиях | Тренировка на осанку", videoId: "5e80114bfae4c0d1fb48769108feec61" },
+                { name: "Тренировка для красивой осанки | Работа над раскрытием грудного отдела позвоночника", videoId: "78b46980553fbf2c7e47a140d9d56057" },
+                { name: "Комплекс для красивой и ровной осанки | Тренировка для спины | 16 минут", videoId: "1113e6db3ce7fd7ac8bcaa592164353f" },
+            ],
+            "Ноги и ягодицы": [
+                { name: "Тренировка для внутренней поверхности бедра | Пилатес для подтянутых бедер", videoId: "73b50504d5cf18ab66e7c26a7e46fca6" },
+                { name: "Тренировка для подтянутых бедер | Тонкие ляжки в домашних условиях", videoId: "497e77b589ed3177c016bedcd7ea907c" },
+                { name: "Растяжка и МФР бедер и ягодиц | 20 минут", videoId: "afd4638ccfe353023bccff01fed3b08e" },
+                { name: "Занятие от уставших ног с МФР-роллом | Тренировка от отечности ног", videoId: "a6393cdbeeebc71ddd28f37695256538" },
+                { name: "Тренировка для упругих ягодиц | Новые упражнения для тонуса ягодиц в домашних условиях", videoId: "82dcae87f89867f0bc6f9d289f185fe8" },
+                { name: "Мягкая тренировка для подтянутых ягодиц | В домашних условиях", videoId: "893259e70ca50bf58e84ec1cca1a549c" },
+                { name: "Эффективная тренировка в стиле пилатес | Пилатес для ягодиц в домашних условиях", videoId: "1f6344e707381c5742fec4727829c173" },
+                { name: "Пилатес для кора и ягодиц | Тренировка в домашних условиях | Эффективные упражнения из пилатеса", videoId: "d48775e92070136d5a68b228d9468b20" },
+                { name: "Силовая тренировка для подтянутых бедер | 15 минут для красивых ножек", videoId: "13a5059c820b8dfee5c8c7e6f03f5921" },
+            ],
+            "HiiT и Кардио": [
+                { name: "Кардио в домашних условиях | HIIT тренировка для похудения | 10 минут", videoId: "ec4748b78d09b3bcb8950e4bf2ee74b4" },
+                { name: "Кардиотренировка с акцентом на пресс | HIIT с упором на мышцы кора", videoId: "cff1a9f503fddfa9b61b0eec627d033d" },
+                { name: "Высокоинтенсивная тренировка | кардио дома | тренировка для похудения", videoId: "e10028893097f23788bbda3b92d6ce37" },
+            ],
+            "Мышцы Кора и Пресс": [
+                { name: "Тренировка от выпирающего живота | Упражнения на глубокие мышцы кора", videoId: "2f89c8cccb4edb908426458d115df734" },
+                { name: "Подтянутый живот | 10 минут с таймером | Тренировка на пресс", videoId: "2c43c41d90fba6715cdfda3ba059c64a" },
+                { name: "Тренировка на пресс при диастазе | Убираем диастаз", videoId: "f1df0099d524be65de03f33fc0c3d547" },
+                { name: "Кардиотренировка с акцентом на пресс | HIIT с упором на мышцы кора", videoId: "cff1a9f503fddfa9b61b0eec627d033d" },
+                { name: "Тренировка для плоского животика | Идеальная талия и рельефный животик за 20 минут", videoId: "cd99b9eaf32962e0993bbf6baea4998a" },
+                { name: "Рельефный пресс | Красивый и подтянутый живот за 15 минут в день", videoId: "dc3d003590214bfa3a60a05b785d4a1b" },
+                { name: "Тренировка для мышц кора | Комплекс упражнения от выпирающего живота", videoId: "9ecb46b1695a6219cad509b9a1ecdd2b" },
+                { name: "Тренировка для мышц тазового дна и кора с мячом | Комплекс для плоского живота", videoId: "6f5bafac20d8b8ca47ff1c872e4309fb" },
+                { name: "Тренировка для мышц кора | Занятие для красивого и подтянутого животика", videoId: "9f26439b54d007a912a6e7a672a18f92" },
+                { name: "Тренировка для мышц тазового дна и кора | Подтягиваем выпирающий животик", videoId: "5234961e5e7d2d512259850bf0f2a771" },
+            ],
+            "Вечерняя растяжка": [
+                { name: "Вечерняя растяжка на все тело | 20 минут для вечернего расслабления", videoId: "2275142171221124618791986420580c" },
+                { name: "Растяжка без слов в спокойном темпе | Растяжка на все тело", videoId: "b166a152332990076296962269a6582e" },
+                { name: "Спокойная вечерняя растяжка перед сном | Растяжка для расслабления 10 минут", videoId: "f2a7060a241277f215007421e19f2b2c" },
+                { name: "Спокойная растяжка на все тело | 10 минут", videoId: "d22957b11516281820610736e053f0f7" },
+            ],
+            "Растяжка": [
+                { name: "Растяжка и МФР бедер и ягодиц | 20 минут", videoId: "afd4638ccfe353023bccff01fed3b08e" },
+                { name: "Растяжка на спину | Упражнения для гибкости спины", videoId: "ae9fbb4176e2d4874d90ca59c462f62c" },
+                { name: "Тонус и гибкость мышц все тела | динамическая растяжка | сила и растяжка", videoId: "5d660f38f7c0a003797e2b4987b10d66" },
+                { name: "Растяжка на продольный шпагат | Для любого уровня подготовки | 10 минут", videoId: "cd63865a80342902b31a4053b22266a2" },
+                { name: "Растяжка на все тело | Короткая тренировка для гибкости всего тела | 10 минут", videoId: "9fb396fe9a1aca1ae169d2e82336e75b" },
+                { name: "Растяжка для задней поверхности бедра | Растяжка ног для складки", videoId: "944d5f626929500d44de76dcd82299ba" },
+                { name: "Раскрытие грудного отдела позвоночника | Красивая осанка и свободное дыхание с МФР-роллом", videoId: "4f1d3391ff74117f57f238672278ed84" },
+                { name: "Растяжка без слов в спокойном темпе | Растяжка на все тело", videoId: "c47a95c7a1d511a56a423f03cb327d92" },
+                { name: "Растяжка на все тело | Мягкая растяжка в домашних условиях", videoId: "3be1f6c78fecc3694d9a2e8c0735773d" },
+                { name: "Утренняя зарядка 7 минут | Приятная растяжка на все тело", videoId: "8907f968aa84c8ae8b481f2ea8329dcd" },
+                { name: "Растяжка и МФР на все тело | Спокойная тренировка для расслабления", videoId: "c28ea027c26f9c2c0635bd7167589f22" },
+            ],
+             "Мышцы Тазового Дна": [
+                { name: "Тренировка для мышц тазового дна | Комплекс для женского здоровья 15 минут", videoId: "865767b931081512168310023a102911" },
+                { name: "Тренировка для мышц тазового дна | Забота о женском здоровье 20 минут", videoId: "0122214300911712168310023a102911" },
+            ]
+        };
+        const categoryColors = [
+            'bg-rose-500', 'bg-fuchsia-500', 'bg-purple-500', 'bg-violet-500',
+            'bg-indigo-500', 'bg-blue-500', 'bg-sky-500', 'bg-cyan-500', 'bg-teal-500',
+            'bg-emerald-500', 'bg-green-500', 'bg-lime-500'
+        ];
+
+        // --- DEFAULT NUTRITION PLANS (Dietitian-approved examples) ---
+        const defaultNutritionPlans = {
+            "2025-07-30": [
+                {
+                    id: 'meal_def_1_20250730',
+                    mealName: 'Завтрак: Овсянка с ягодами и орехами',
+                    mealTime: '08:00',
+                    description: 'Цельнозерновая овсянка на воде или нежирном молоке, свежие ягоды (клубника, черника), горсть грецких орехов. Заправка: 1 ч.л. льняного масла.',
+                    calories: 350, // Added calories
+                    components: {
+                        protein: 'Орехи (грецкие)',
+                        carbs: 'Овсянка',
+                        fats: 'Льняное масло',
+                        vegetables: 'Ягоды'
+                    }
+                },
+                {
+                    id: 'meal_def_2_20250730',
+                    mealName: 'Обед: Куриная грудка с овощами и бурым рисом',
+                    mealTime: '13:00',
+                    description: 'Запеченная куриная грудка, большая порция салата из свежих овощей (огурцы, помидоры, зелень) с оливковым маслом, 1/4 тарелки бурого риса. Приготовление: запекание, свежие.',
+                    calories: 500, // Added calories
+                    components: {
+                        protein: 'Куриная грудка',
+                        carbs: 'Бурый рис',
+                        fats: 'Оливковое масло',
+                        vegetables: 'Овощной салат'
+                    }
+                },
+                {
+                    id: 'meal_def_3_20250730',
+                    mealName: 'Перекус: Яблоко',
+                    mealTime: '16:30',
+                    description: 'Одно свежее яблоко.',
+                    calories: 95, // Added calories
+                    components: {
+                        protein: '',
+                        carbs: 'Яблоко',
+                        fats: '',
+                        vegetables: ''
+                    }
+                },
+                {
+                    id: 'meal_def_4_20250730',
+                    mealName: 'Ужин: Запеченная рыба с брокколи',
+                    mealTime: '19:00',
+                    description: 'Филе белой рыбы (треска/минтай), запеченное с брокколи. Можно добавить немного лимонного сока. Приготовление: запекание.',
+                    calories: 300, // Added calories
+                    components: {
+                        protein: 'Белая рыба',
+                        carbs: '', // Low carb for dinner
+                        fats: 'Рыбий жир (естественно)',
+                        vegetables: 'Брокколи'
+                    }
+                }
+            ],
+            "2025-07-31": [
+                {
+                    id: 'meal_def_1_20250731',
+                    mealName: 'Завтрак: Омлет с овощами',
+                    mealTime: '08:30',
+                    description: 'Омлет из 2 яиц с добавлением шпината, помидоров и болгарского перца. Подается с кусочком цельнозернового хлеба. Приготовление: на пару или на сухой сковороде.',
+                    calories: 280, // Added calories
+                    components: {
+                        protein: 'Яйца',
+                        carbs: 'Цельнозерновой хлеб',
+                        fats: 'Яичный желток',
+                        vegetables: 'Шпинат, помидоры, перец'
+                    }
+                },
+                {
+                    id: 'meal_def_2_20250731',
+                    mealName: 'Обед: Салат с тунцом и киноа',
+                    mealTime: '13:30',
+                    description: 'Большой салат из свежих листьев салата, огурцов, помидоров, консервированного тунца в собственном соку, отварной киноа. Заправка: оливковое масло и лимонный сок. Приготовление: свежие, отварные.',
+                    calories: 450, // Added calories
+                    components: {
+                        protein: 'Тунец',
+                        carbs: 'Киноа',
+                        fats: 'Оливковое масло',
+                        vegetables: 'Салат, огурцы, помидоры'
+                    }
+                },
+                {
+                    id: 'meal_def_3_20250731',
+                    mealName: 'Перекус: Горсть миндаля',
+                    mealTime: '17:00',
+                    description: 'Небольшая горсть сырого миндаля.',
+                    calories: 160, // Added calories
+                    components: {
+                        protein: 'Миндаль',
+                        carbs: '',
+                        fats: 'Миндаль',
+                        vegetables: ''
+                    }
+                },
+                {
+                    id: 'meal_def_4_20250731',
+                    mealName: 'Ужин: Творог с ягодами',
+                    mealTime: '19:30',
+                    description: 'Нежирный творог (5%) с горстью свежих или замороженных ягод. Приготовление: свежие.',
+                    calories: 200, // Added calories
+                    components: {
+                        protein: 'Творог',
+                        carbs: '',
+                        fats: '',
+                        vegetables: 'Ягоды'
+                    }
+                }
+            ]
+        };
+
+
+        // --- GLOBAL HELPER FUNCTIONS ---
+
+        const showMessageBox = (message, isError = false) => {
+            if (!messageBox) {
+                console.error("MessageBox element not found. Cannot display message:", message);
+                return;
+            }
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-500', 'bg-green-500');
+            if (isError) {
+                messageBox.classList.add('bg-red-500');
+            } else {
+                messageBox.classList.add('bg-green-500');
+            }
+            messageBox.classList.add('show');
+            messageBox.style.visibility = 'visible';
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+                messageBox.style.visibility = 'hidden';
+            }, 3000);
+        };
+
+        // --- NUTRITION LOGIC FUNCTIONS (GLOBAL) ---
+
+        // Loads nutrition plans from localStorage
+        const loadNutritionPlansFromLocalStorage = () => {
+            console.log("Nutrition Logic: Attempting to load nutrition plans from localStorage...");
+            try {
+                const nutritionJson = localStorage.getItem('femfitNutritionPlans');
+                const loadedPlans = nutritionJson ? JSON.parse(nutritionJson) : null;
+
+                if (!loadedPlans || Object.keys(loadedPlans).length === 0) {
+                    // If no plans in localStorage or it's empty, use default plans
+                    console.log("Nutrition Logic: No plans found in localStorage. Initializing with default plans.");
+                    // Deep copy default plans to avoid modifying the constant
+                    return JSON.parse(JSON.stringify(defaultNutritionPlans));
+                }
+                console.log("Nutrition Logic: Loaded nutrition plans from localStorage:", loadedPlans);
+                return loadedPlans;
+            } catch (e) {
+                console.error("Nutrition Logic: Error loading nutrition plans from localStorage:", e);
+                showMessageBox("Ошибка загрузки планов питания из локального хранилища.", true);
+                return JSON.parse(JSON.stringify(defaultNutritionPlans)); // Fallback to default on error
+            }
+        };
+
+        // Saves nutrition plans to localStorage
+        const saveNutritionPlansToLocalStorage = (plans) => {
+            console.log("Nutrition Logic: Attempting to save nutrition plans to localStorage:", plans);
+            try {
+                localStorage.setItem('femfitNutritionPlans', JSON.stringify(plans));
+                console.log("Nutrition Logic: Nutrition plans saved to localStorage successfully.");
+            } catch (e) {
+                console.error("Nutrition Logic: Error saving nutrition plans to localStorage:", e);
+                showMessageBox("Ошибка сохранения планов питания в локальное хранилище.", true);
+            }
+        };
+
+        const fetchNutritionPlans = () => {
+            console.log("Nutrition Logic: fetchNutritionPlans called.");
+            state.nutritionPlans = loadNutritionPlansFromLocalStorage();
+            renderNutritionPlans(state.selectedNutritionDate);
+        };
+
+        const renderNutritionPlans = (dateString) => {
+            console.log("Nutrition Logic: renderNutritionPlans called for date:", dateString);
+            if (!mealListContainer || !noMealsMessage || !dailyCaloriesTotalElement) {
+                console.error("Nutrition Logic: Meal DOM elements not found for rendering. Skipping render.");
+                return;
+            }
+            mealListContainer.innerHTML = '';
+            const mealsForDate = state.nutritionPlans[dateString] || [];
+            const sortedMeals = mealsForDate.sort((a, b) => a.mealTime.localeCompare(b.mealTime));
+            console.log("Nutrition Logic: Filtered meals for date", dateString, ":", sortedMeals);
+
+            let dailyTotalCalories = 0;
+
+            if (sortedMeals.length === 0) {
+                noMealsMessage.classList.remove('hidden');
+                console.log("Nutrition Logic: No meals found for this date. Displaying 'no meals' message.");
+            } else {
+                noMealsMessage.classList.add('hidden');
+                sortedMeals.forEach(meal => {
+                    const mealCard = document.createElement('div');
+                    mealCard.className = "bg-white p-4 rounded-xl shadow-md flex justify-between items-center border border-gray-200";
+                    
+                    let componentsHtml = '';
+                    if (meal.components) {
+                        componentsHtml += '<div class="text-xs text-gray-500 mt-2">';
+                        if (meal.components.protein) componentsHtml += `<p><strong>Белки:</strong> ${meal.components.protein}</p>`;
+                        if (meal.components.carbs) componentsHtml += `<p><strong>Углеводы:</strong> ${meal.components.carbs}</p>`;
+                        if (meal.components.fats) componentsHtml += `<p><strong>Жиры:</strong> ${meal.components.fats}</p>`;
+                        if (meal.components.vegetables) componentsHtml += `<p><strong>Овощи/Фрукты:</strong> ${meal.components.vegetables}</p>`;
+                        componentsHtml += '</div>';
+                    }
+
+                    const caloriesDisplay = meal.calories ? `<p class="text-sm font-semibold text-green-700 mt-1">${meal.calories} ккал</p>` : '';
+                    if (meal.calories) {
+                        dailyTotalCalories += parseInt(meal.calories);
+                    }
+
+                    mealCard.innerHTML = `
+                        <div>
+                            <p class="font-bold text-gray-800 text-lg">${meal.mealName}</p>
+                            <p class="text-sm text-gray-600">${meal.mealTime}</p>
+                            ${caloriesDisplay}
+                            ${meal.description ? `<p class="text-xs text-gray-500 mt-1 italic">${meal.description}</p>` : ''}
+                            ${componentsHtml}
+                        </div>
+                        <button data-id="${meal.id}" data-date="${dateString}" class="delete-meal-btn text-red-500 hover:text-red-700 p-2 rounded-full bg-red-100 hover:bg-red-200 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                    `;
+                    mealListContainer.appendChild(mealCard);
+                });
+
+                mealListContainer.querySelectorAll('.delete-meal-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const mealIdToDelete = event.currentTarget.dataset.id;
+                        const mealDate = event.currentTarget.dataset.date;
+                        console.log("Nutrition Logic: Delete button clicked for meal ID:", mealIdToDelete, "on date:", mealDate);
+                        deleteMeal(mealIdToDelete, mealDate);
+                    });
+                });
+            }
+            dailyCaloriesTotalElement.textContent = `${dailyTotalCalories} ккал`;
+        };
+
+        // Function to call Gemini API for calorie estimation
+        const getCaloriesFromGemini = async (mealName, mealDescription) => {
+            const prompt = `Оцени приблизительную калорийность следующего приема пищи. Укажи только число калорий в ккал. Если не можешь оценить, верни 0.
+            Название: ${mealName}
+            Описание: ${mealDescription || 'нет описания'}`;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = {
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "calories": { "type": "NUMBER" }
+                        },
+                        "required": ["calories"]
+                    }
+                }
+            };
+
+            const apiKey = ""; // Leave as-is, Canvas will provide
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            let retryCount = 0;
+            const maxRetries = 3;
+            const baseDelay = 1000; // 1 second
+
+            while (retryCount < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && retryCount < maxRetries - 1) {
+                            const delay = baseDelay * Math.pow(2, retryCount);
+                            console.warn(`Rate limit exceeded for calorie estimation. Retrying in ${delay / 1000}s...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            retryCount++;
+                            continue;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const jsonString = result.candidates[0].content.parts[0].text;
+                        const parsedJson = JSON.parse(jsonString);
+                        return parsedJson.calories || 0;
+                    } else {
+                        console.warn("Gemini API returned unexpected structure for calorie estimation.");
+                        return 0;
+                    }
+                } catch (e) {
+                    console.error("Error calling Gemini API for calorie estimation:", e);
+                    return 0; // Return 0 on error
+                }
+            }
+            return 0; // Fallback if all retries fail
+        };
+
+
+        const addMeal = async (mealData) => { // Made addMeal async
+            console.log("Nutrition Logic: addMeal called with data:", mealData);
+            const submitButton = addMealForm.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML; // Declare here
+            try {
+                // Show loading spinner in the modal while fetching calories
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<div class="spinner w-5 h-5 border-2 mx-auto"></div>'; // Smaller spinner
+
+                mealData.id = Date.now().toString(); // Simple unique ID
+                console.log("Nutrition Logic: Assigned new meal ID:", mealData.id);
+                
+                // Call Gemini API to get calorie estimate
+                mealData.calories = await getCaloriesFromGemini(mealData.mealName, mealData.mealDescription);
+                console.log("Nutrition Logic: Calories estimated by Gemini:", mealData.calories);
+
+                if (!state.nutritionPlans[state.selectedNutritionDate]) {
+                    state.nutritionPlans[state.selectedNutritionDate] = [];
+                }
+                // For manually added meals, components might not be provided, so initialize them
+                mealData.components = mealData.components || {}; 
+
+                state.nutritionPlans[state.selectedNutritionDate].push(mealData);
+                console.log("Nutrition Logic: state.nutritionPlans after push:", state.nutritionPlans);
+                
+                saveNutritionPlansToLocalStorage(state.nutritionPlans);
+                showMessageBox("Прием пищи успешно добавлен!");
+                closeAddMealModal();
+                renderNutritionPlans(state.selectedNutritionDate); // Re-render to show new meal
+            } catch (e) {
+                console.error("Nutrition Logic: Error adding meal:", e);
+                showMessageBox("Ошибка при добавлении приема пищи: " + e.message, true);
+            } finally {
+                // Restore submit button
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            }
+        };
+
+        const deleteMeal = (id, date) => {
+            console.log("Nutrition Logic: deleteMeal called for ID:", id, "on date:", date);
+            try {
+                if (state.nutritionPlans[date]) {
+                    const initialMealCount = state.nutritionPlans[date].length;
+                    state.nutritionPlans[date] = state.nutritionPlans[date].filter(meal => meal.id !== id);
+                    console.log("Nutrition Logic: state.nutritionPlans[date] after filter (deleted):", state.nutritionPlans[date]);
+                    
+                    if (state.nutritionPlans[date].length < initialMealCount) {
+                        saveNutritionPlansToLocalStorage(state.nutritionPlans);
+                        showMessageBox("Прием пищи удален.");
+                    } else {
+                        showMessageBox("Прием пищи с таким ID не найден.", true);
+                    }
+                } else {
+                    showMessageBox("План питания на эту дату не найден.", true);
+                }
+                renderNutritionPlans(state.selectedNutritionDate); // Re-render to reflect deletion
+            } catch (e) {
+                console.error("Nutrition Logic: Error deleting meal:", e);
+                showMessageBox("Ошибка при удалении приема пищи: " + e.message, true);
+            }
+        };
+
+        const openAddMealModal = () => {
+            console.log("Nutrition Logic: openAddMealModal called.");
+            if (!addMealModal || !addMealForm || !document.getElementById('meal-time')) {
+                console.error("Nutrition Logic: Modal DOM elements not found for opening. Skipping.");
+                showMessageBox("Ошибка: Не найдены элементы формы. Попробуйте перезагрузить страницу.", true);
+                return;
+            }
+            console.log("Nutrition Logic: addMealModal current classes before showing:", addMealModal.classList.value);
+            addMealModal.classList.add('show');
+            addMealModal.classList.remove('hidden'); // Ensure hidden is removed
+            console.log("Nutrition Logic: addMealModal classes after showing:", addMealModal.classList.value);
+
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('meal-time').value = `${hours}:${minutes}`;
+            // No need to clear meal-calories input as it's removed
+            console.log("Nutrition Logic: Add meal modal opened.");
+        };
+
+        const closeAddMealModal = () => {
+            console.log("Nutrition Logic: closeAddMealModal called.");
+            if (!addMealModal || !addMealForm) {
+                console.error("Nutrition Logic: Modal DOM elements not found for closing. Skipping.");
+                return;
+            }
+            addMealModal.classList.remove('show');
+            addMealModal.classList.add('hidden'); // Add hidden back
+            addMealForm.reset();
+            console.log("Nutrition Logic: Add meal modal closed and form reset.");
+        };
+
+        // --- GEMINI API INTEGRATION FOR NUTRITION RECOMMENDATIONS ---
+
+        const openNutritionRecommendationsModal = () => {
+            nutritionRecommendationsModal.classList.add('show');
+            nutritionRecommendationsModal.classList.remove('hidden');
+            // Hide previous results and error, show loading
+            recommendationsContent.classList.add('hidden');
+            recommendationsLoading.classList.remove('hidden');
+            recommendationsError.classList.add('hidden');
+            recommendationsOverallAssessment.textContent = '';
+            recommendationsMacronutrients.textContent = '';
+            recommendationsSuggestion.textContent = '';
+            
+            callGeminiNutritionAPI();
+        };
+
+        const closeNutritionRecommendationsModal = () => {
+            nutritionRecommendationsModal.classList.remove('show');
+            nutritionRecommendationsModal.classList.add('hidden');
+        };
+
+        const callGeminiNutritionAPI = async () => {
+            const mealsForDate = state.nutritionPlans[state.selectedNutritionDate] || [];
+            if (mealsForDate.length === 0) {
+                recommendationsLoading.classList.add('hidden');
+                recommendationsError.classList.remove('hidden');
+                recommendationsError.textContent = "Нет данных о приемах пищи за выбранную дату для анализа.";
+                recommendationsContent.classList.remove('hidden');
+                return;
+            }
+
+            const formattedMeals = mealsForDate.map(meal => {
+                return `Название: ${meal.mealName}, Время: ${meal.mealTime}, Калории: ${meal.calories || 'не указано'}, Описание: ${meal.description || 'нет описания'}`;
+            }).join('\n');
+
+            const prompt = `Проанализируй следующий список приемов пищи за день. Для каждого приема пищи указано: название, время, калории (если есть) и описание.
+
+На основе этих данных:
+1.  Дай общую оценку рациона на день (например, 'Хороший баланс', 'Недостаточно белка', 'Много углеводов').
+2.  Оцени примерное распределение макронутриентов за день (белки, углеводы, жиры) в общих чертах.
+3.  Предложи одну конкретную рекомендацию по улучшению рациона или идею альтернативного приема пищи, если есть явные пробелы.
+
+Формат ответа должен быть JSON, соответствующий следующей схеме:
+\`\`\`json
+{
+  "overallAssessment": "string",
+  "macronutrientsSummary": {
+    "protein": "string",
+    "carbs": "string",
+    "fats": "string"
+  },
+  "suggestion": "string"
+}
+\`\`\`
+
+Приемы пищи:
+${formattedMeals}`;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = {
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "overallAssessment": { "type": "STRING" },
+                            "macronutrientsSummary": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "protein": { "type": "STRING" },
+                                    "carbs": { "type": "STRING" },
+                                    "fats": { "type": "STRING" }
+                                }
+                            },
+                            "suggestion": { "type": "STRING" }
+                        },
+                        "required": ["overallAssessment", "macronutrientsSummary", "suggestion"]
+                    }
+                }
+            };
+
+            const apiKey = ""; // Leave as-is, Canvas will provide
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            let retryCount = 0;
+            const maxRetries = 3;
+            const baseDelay = 1000; // 1 second
+
+            while (retryCount < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && retryCount < maxRetries - 1) {
+                            const delay = baseDelay * Math.pow(2, retryCount);
+                            console.warn(`Rate limit exceeded. Retrying in ${delay / 1000}s...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            retryCount++;
+                            continue;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const jsonString = result.candidates[0].content.parts[0].text;
+                        const parsedJson = JSON.parse(jsonString);
+                        
+                        recommendationsOverallAssessment.textContent = `Общая оценка: ${parsedJson.overallAssessment}`;
+                        recommendationsMacronutrients.textContent = `Макронутриенты: Белки - ${parsedJson.macronutrientsSummary.protein}, Углеводы - ${parsedJson.macronutrientsSummary.carbs}, Жиры - ${parsedJson.macronutrientsSummary.fats}`;
+                        recommendationsSuggestion.textContent = `Рекомендация: ${parsedJson.suggestion}`;
+                        
+                        recommendationsLoading.classList.add('hidden');
+                        recommendationsContent.classList.remove('hidden');
+                        recommendationsError.classList.add('hidden');
+                        break; // Exit loop on success
+                    } else {
+                        throw new Error("Неожиданная структура ответа от API Gemini.");
+                    }
+                } catch (e) {
+                    console.error("Error calling Gemini API:", e);
+                    recommendationsLoading.classList.add('hidden');
+                    recommendationsError.classList.remove('hidden');
+                    recommendationsError.textContent = `Ошибка: ${e.message}. Пожалуйста, попробуйте еще раз.`;
+                    recommendationsContent.classList.remove('hidden');
+                    break; // Exit loop on unrecoverable error
+                }
+            }
+        };
+
+        // --- NEW: GEMINI API INTEGRATION FOR MEAL PLAN FROM INGREDIENTS ---
+
+        const openMealPlanModal = () => {
+            mealPlanModal.classList.add('show');
+            mealPlanModal.classList.remove('hidden');
+            mealPlanForm.reset(); // Clear previous input
+            mealPlanResults.classList.add('hidden'); // Hide results area initially
+            mealPlanLoading.classList.add('hidden'); // Hide loading spinner
+            mealPlanError.classList.add('hidden'); // Hide error message
+            mealPlanDisplay.innerHTML = ''; // Clear previous suggestions
+        };
+
+        const closeMealPlanModal = () => {
+            mealPlanModal.classList.remove('show');
+            mealPlanModal.classList.add('hidden');
+        };
+
+        const getMealPlanFromGemini = async (ingredients) => {
+            mealPlanResults.classList.remove('hidden'); // Show results area
+            mealPlanLoading.classList.remove('hidden'); // Show loading spinner
+            mealPlanError.classList.add('hidden'); // Hide any previous errors
+            mealPlanDisplay.innerHTML = ''; // Clear previous suggestions
+
+            const prompt = `Предложите план питания на один день (Завтрак, Обед, Ужин), используя только следующие продукты: ${ingredients}.
+            Для каждого приема пищи укажите:
+            - Тип приема пищи (Завтрак, Обед, Ужин)
+            - Название блюда
+            - Краткое описание приготовления/состава
+            - Приблизительную калорийность (число в ккал). Если не можете оценить, укажите 0.
+            
+            В конце добавьте короткую общую заметку о плане.
+
+            Формат ответа должен быть JSON, соответствующий следующей схеме:
+            \`\`\`json
+            {
+              "mealPlan": [
+                {
+                  "type": "string",
+                  "name": "string",
+                  "description": "string",
+                  "calories": "number"
+                }
+              ],
+              "notes": "string"
+            }
+            \`\`\`
+            `;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = {
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "mealPlan": {
+                                "type": "ARRAY",
+                                "items": {
+                                    "type": "OBJECT",
+                                    "properties": {
+                                        "type": { "type": "STRING" },
+                                        "name": { "type": "STRING" },
+                                        "description": { "type": "STRING" },
+                                        "calories": { "type": "NUMBER" }
+                                    },
+                                    "required": ["type", "name", "description", "calories"]
+                                }
+                            },
+                            "notes": { "type": "STRING" }
+                        },
+                        "required": ["mealPlan", "notes"]
+                    }
+                }
+            };
+
+            const apiKey = ""; // Leave as-is, Canvas will provide
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            let retryCount = 0;
+            const maxRetries = 3;
+            const baseDelay = 1000; // 1 second
+
+            try {
+                while (retryCount < maxRetries) {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && retryCount < maxRetries - 1) {
+                            const delay = baseDelay * Math.pow(2, retryCount);
+                            console.warn(`Rate limit exceeded for meal plan generation. Retrying in ${delay / 1000}s...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            retryCount++;
+                            continue;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const jsonString = result.candidates[0].content.parts[0].text;
+                        const parsedJson = JSON.parse(jsonString);
+                        
+                        mealPlanDisplay.innerHTML = ''; // Clear before adding new results
+                        parsedJson.mealPlan.forEach(meal => {
+                            const mealElement = document.createElement('div');
+                            mealElement.className = "bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-100";
+                            mealElement.innerHTML = `
+                                <p class="font-bold text-blue-800 text-md">${meal.type}: ${meal.name}</p>
+                                <p class="text-sm text-gray-700">${meal.description}</p>
+                                <p class="text-xs text-blue-600 font-semibold">${meal.calories} ккал</p>
+                            `;
+                            mealPlanDisplay.appendChild(mealElement);
+                        });
+                        mealPlanNotes.textContent = `Примечание: ${parsedJson.notes}`;
+                        
+                        mealPlanLoading.classList.add('hidden');
+                        mealPlanError.classList.add('hidden');
+                        mealPlanResults.classList.remove('hidden'); // Ensure results are visible
+                        break; // Exit loop on success
+                    } else {
+                        throw new Error("Неожиданная структура ответа от API Gemini.");
+                    }
+                }
+            } catch (e) {
+                console.error("Error calling Gemini API for meal plan:", e);
+                mealPlanLoading.classList.add('hidden');
+                mealPlanError.classList.remove('hidden');
+                mealPlanError.textContent = `Ошибка: ${e.message}. Пожалуйста, попробуйте еще раз.`;
+            } finally {
+                submitMealPlanBtn.disabled = false;
+                submitMealPlanBtn.innerHTML = 'Получить предложения';
+            }
+        };
+
+
+        // --- DOMContentLoaded EVENT LISTENER ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            // --- ASSIGN DOM ELEMENTS ---
+            // Changed screens object to use full IDs as keys
+            const screens = {
+                'home-screen': document.getElementById('home-screen'),
+                'start-workout-screen': document.getElementById('start-workout-screen'), 
+                'workout-screen': document.getElementById('workout-screen'),
+                'analytics-screen': document.getElementById('analytics-screen'),
+                'nutrition-screen': document.getElementById('nutrition-screen'), 
+            };
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const workoutListContainer = document.getElementById('workout-list');
+            
+            const backToHomeButton = document.getElementById('back-to-home'); 
+            const endWorkoutMainButton = document.getElementById('end-workout-main-btn');
+            
+            workoutTitle = document.getElementById('workout-title'); // Global assignment
+            videoContainer = document.getElementById('video-container'); // Global assignment
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            playIcon = document.getElementById('play-icon'); // Global assignment
+            pauseIcon = document.getElementById('pause-icon'); // Global assignment
+            messageBox = document.getElementById('message-box'); // Global assignment
+
+            confirmWorkoutTitle = document.getElementById('confirm-workout-title'); // Global assignment
+            const startWorkoutBtn = document.getElementById('start-workout-btn');
+            const cancelStartBtn = document.getElementById('cancel-start-btn');
+
+            // Assign DOM elements for Nutrition
+            nutritionDateFilter = document.getElementById('nutrition-date-filter');
+            mealListContainer = document.getElementById('meal-list');
+            noMealsMessage = document.getElementById('no-meals-message');
+            const addMealBtn = document.getElementById('add-meal-btn');
+            addMealModal = document.getElementById('add-meal-modal');
+            addMealForm = document.getElementById('add-meal-form');
+            const cancelAddMealBtn = document.getElementById('cancel-add-meal');
+            const closeAddMealModalBtn = document.getElementById('close-add-meal-modal');
+            dailyCaloriesTotalElement = document.getElementById('daily-calories-total'); // Assign new element
+
+            // Assign new DOM elements for LLM recommendations
+            getNutritionRecommendationsBtn = document.getElementById('get-nutrition-recommendations-btn');
+            nutritionRecommendationsModal = document.getElementById('nutrition-recommendations-modal');
+            closeNutritionRecommendationsModalBtn = document.getElementById('close-nutrition-recommendations-modal');
+            okNutritionRecommendationsBtn = document.getElementById('ok-nutrition-recommendations');
+            recommendationsContent = document.getElementById('recommendations-content');
+            recommendationsLoading = document.getElementById('recommendations-loading');
+            recommendationsOverallAssessment = document.getElementById('recommendations-overall-assessment');
+            recommendationsMacronutrients = document.getElementById('recommendations-macronutrients');
+            recommendationsSuggestion = document.getElementById('recommendations-suggestion');
+            recommendationsError = document.getElementById('recommendations-error');
+
+            // Assign new DOM elements for Meal Plan from Ingredients
+            getMealPlanFromIngredientsBtn = document.getElementById('get-meal-plan-from-ingredients-btn');
+            mealPlanModal = document.getElementById('meal-plan-modal');
+            closeMealPlanModalBtn = document.getElementById('close-meal-plan-modal');
+            mealPlanForm = document.getElementById('meal-plan-form');
+            availableIngredientsInput = document.getElementById('available-ingredients');
+            submitMealPlanBtn = document.getElementById('submit-meal-plan');
+            cancelMealPlanBtn = document.getElementById('cancel-meal-plan');
+            mealPlanResults = document.getElementById('meal-plan-results');
+            mealPlanLoading = document.getElementById('meal-plan-loading');
+            mealPlanDisplay = document.getElementById('meal-plan-display');
+            mealPlanNotes = document.getElementById('meal-plan-notes');
+            mealPlanError = document.getElementById('meal-plan-error');
+
+
+            // --- UI RENDERING FUNCTIONS (LOCAL TO DOMContentLoaded) ---
+            const switchScreen = (screenId) => {
+                state.currentScreen = screenId;
+                // Iterate over the screens object to hide all screens
+                for (const id in screens) {
+                    const screenElement = screens[id]; // Get the actual DOM element
+                    if (screenElement) { 
+                        screenElement.classList.add('hidden');
+                        screenElement.classList.remove('flex'); // Remove flex in case it was added
+                    }
+                }
+                
+                // Get the target screen element directly from the screens object
+                const targetScreenElement = screens[screenId];
+
+                if (targetScreenElement) {
+                    // Check if the screen should be displayed with flex
+                    if (['start-workout-screen', 'nutrition-screen'].includes(screenId)) {
+                        targetScreenElement.classList.remove('hidden');
+                        targetScreenElement.classList.add('flex');
+                    } else {
+                        targetScreenElement.classList.remove('hidden');
+                    }
+                } else {
+                    console.error(`Error: Target screen element for ID '${screenId}' not found.`);
+                    // Optionally, show a user-friendly message or default to home screen
+                    showMessageBox("Ошибка: Экран не найден. Попробуйте перезагрузить страницу.", true);
+                    return; // Stop execution if target screen is not found
+                }
+                
+                navButtons.forEach(btn => {
+                    btn.classList.remove('text-purple-600', 'font-bold');
+                    btn.classList.add('text-gray-500', 'hover:text-purple-600');
+                    if (btn.dataset.screen === screenId) {
+                        btn.classList.add('text-purple-600', 'font-bold');
+                        btn.classList.remove('text-gray-500', 'hover:text-purple-600');
+                    }
+                });
+
+                if (screenId === 'analytics-screen') {
+                    renderAnalytics();
+                } else if (screenId === 'nutrition-screen') {
+                    console.log("Nutrition Logic: Switching to nutrition screen.");
+                    nutritionDateFilter.value = state.selectedNutritionDate;
+                    fetchNutritionPlans(); // Load and render nutrition plans for the new date
+                }
+            };
+
+            const renderWorkoutList = () => {
+                workoutListContainer.innerHTML = '';
+                let colorIndex = 0;
+                for (const category in videoData) {
+                    const color = categoryColors[colorIndex % categoryColors.length];
+                    colorIndex++;
+
+                    const details = document.createElement('details');
+                    details.className = "group";
+
+                    const summary = document.createElement('summary');
+                    summary.className = `${color} text-white p-4 rounded-lg flex justify-between items-center cursor-pointer transition hover:opacity-90 shadow-md`;
+                    summary.innerHTML = `
+                        <span class="font-bold">${category}</span>
+                        <svg class="arrow w-6 h-6 transition-transform transform group-open:rotate-90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    `;
+                    
+                    const videoGrid = document.createElement('div');
+                    videoGrid.className = "mt-2 space-y-2 pl-2";
+
+                    videoData[category].forEach(video => {
+                        const element = document.createElement('div');
+                        element.className = "bg-gray-100 p-3 rounded-lg flex items-center gap-3 cursor-pointer hover:bg-purple-100 transition-colors shadow-sm";
+                        element.onclick = () => showStartWorkoutConfirmation(video); 
+                        
+                        element.innerHTML = `
+                            <div class="text-purple-500">
+                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10 16.5v-9l6 4.5-6 4.5zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                            </div>
+                            <p class="font-semibold text-gray-800 text-sm">${video.name}</p>
+                        `;
+                        videoGrid.appendChild(element);
+                    });
+                    
+                    details.appendChild(summary);
+                    details.appendChild(videoGrid);
+                    workoutListContainer.appendChild(details);
+                }
+            };
+            
+            const renderAnalytics = () => {
+                document.getElementById('stats-workouts').textContent = state.analytics.workoutsCompleted;
+                document.getElementById('stats-minutes').textContent = Math.floor(state.analytics.totalSecondsTrained / 60);
+                renderChart();
+            };
+
+            const renderChart = () => {
+                const ctx = document.getElementById('progressChart').getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+                
+                const minutesHistory = state.analytics.history.map(seconds => Math.floor(seconds / 60));
+
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Неделя -6', 'Неделя -5', 'Неделя -4', 'Неделя -3', 'Неделя -2', 'Прошлая неделя', 'Текущая неделя'],
+                        datasets: [{
+                            label: 'Минут тренировок',
+                            data: minutesHistory,
+                            backgroundColor: 'rgba(168, 85, 247, 0.8)',
+                            borderColor: 'rgb(168, 85, 247)',
+                            borderWidth: 1,
+                            borderRadius: 8,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y + ' мин';
+                                    }
+                                }
+                            }
+                        },
+                        scales: { 
+                            y: { 
+                                beginAtZero: true, 
+                                ticks: { color: '#6b7280' },
+                                grid: { color: '#e5e7eb' }
+                            }, 
+                            x: { 
+                                ticks: { color: '#6b7280' },
+                                grid: { display: false }
+                            } 
+                        }
+                    }
+                });
+            };
+
+            // --- WORKOUT LOGIC FUNCTIONS (LOCAL TO DOMContentLoaded) ---
+            const showStartWorkoutConfirmation = (video) => {
+                state.currentVideo = video;
+                confirmWorkoutTitle.textContent = video.name;
+                switchScreen('start-workout-screen');
+            };
+
+            const confirmStartWorkout = () => {
+                workoutTitle.textContent = state.currentVideo.name;
+                
+                videoContainer.innerHTML = `<iframe id="video-player" src="https://rutube.ru/play/embed/${state.currentVideo.videoId}" frameborder="0" allow="fullscreen; picture-in-picture" webkitallowfullscreen mozallowfullscreen allowfullscreen class="w-full h-full rounded-2xl"></iframe>`;
+                
+                resetTimer();
+                togglePlayPause();
+                switchScreen('workout-screen');
+                showMessageBox("Пожалуйста, запустите видео вручную на плеере Rutube. Таймер приложения начал отсчет.");
+            };
+
+            const togglePlayPause = () => {
+                state.isTimerRunning = !state.isTimerRunning;
+                if (state.isTimerRunning) {
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
+                    state.timerId = setInterval(updateTimer, 1000);
+                } else {
+                    playIcon.classList.remove('hidden');
+                    pauseIcon.classList.add('hidden');
+                    clearInterval(state.timerId);
+                    showMessageBox("Таймер приложения приостановлен.");
+                }
+            };
+            
+            const endWorkoutAndSave = () => {
+                if(state.isTimerRunning) {
+                    togglePlayPause();
+                }
+                logAnalytics();
+                videoContainer.innerHTML = '';
+                switchScreen('home-screen');
+            };
+
+            const resetTimer = () => {
+                clearInterval(state.timerId);
+                state.isTimerRunning = false;
+                state.timeElapsed = 0;
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            };
+
+            const updateTimer = () => {
+                state.timeElapsed++;
+            };
+            
+            const logAnalytics = () => {
+                if (state.timeElapsed > 0) {
+                    state.analytics.workoutsCompleted++;
+                    state.analytics.totalSecondsTrained += state.timeElapsed;
+                    state.analytics.history[6] += state.timeElapsed;
+                    saveAnalytics();
+                }
+            };
+            
+            const saveAnalytics = () => {
+                localStorage.setItem('femfitAnalytics', JSON.stringify(state.analytics));
+            };
+
+            const checkAndResetWeeklyAnalytics = () => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                let lastResetDate = new Date(state.analytics.lastAnalyticsResetDate);
+                lastResetDate.setHours(0, 0, 0, 0);
+
+                const currentWeekStart = new Date(today);
+                currentWeekStart.setDate(today.getDate() - (today.getDay() + 6) % 7);
+                currentWeekStart.setHours(0, 0, 0, 0);
+
+                const lastRecordedWeekStart = new Date(lastResetDate);
+                lastRecordedWeekStart.setDate(lastResetDate.getDate() - (lastResetDate.getDay() + 6) % 7);
+                lastRecordedWeekStart.setHours(0, 0, 0, 0);
+
+                if (currentWeekStart.getTime() > lastRecordedWeekStart.getTime()) {
+                    state.analytics.history.shift();
+                    state.analytics.history.push(0);
+                    state.analytics.lastAnalyticsResetDate = today.toISOString().split('T')[0];
+                    saveAnalytics();
+                    console.log("Analytics history reset for a new week.");
+                }
+            };
+
+            // --- EVENT LISTENERS ---
+            navButtons.forEach(btn => {
+                btn.addEventListener('click', () => switchScreen(btn.dataset.screen));
+            });
+            backToHomeButton.addEventListener('click', () => {
+                if(state.isTimerRunning) {
+                    togglePlayPause();
+                }
+                videoContainer.innerHTML = '';
+                switchScreen('home-screen');
+            });
+            endWorkoutMainButton.addEventListener('click', endWorkoutAndSave);
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            startWorkoutBtn.addEventListener('click', confirmStartWorkout);
+            cancelStartBtn.addEventListener('click', () => switchScreen('home-screen'));
+
+            // Event listeners for Nutrition
+            addMealBtn.addEventListener('click', () => {
+                console.log("Nutrition Logic: Add Meal Button clicked.");
+                openAddMealModal();
+            });
+            cancelAddMealBtn.addEventListener('click', closeAddMealModal);
+            closeAddMealModalBtn.addEventListener('click', closeAddMealModal);
+            addMealForm.addEventListener('submit', async (event) => { // Made event listener async
+                event.preventDefault();
+                console.log("Nutrition Logic: Add meal form submitted.");
+                const formData = new FormData(addMealForm);
+                const mealData = {};
+                for (let [key, value] of formData.entries()) {
+                    mealData[key] = value;
+                }
+                await addMeal(mealData); // Await the addMeal function
+            });
+
+            nutritionDateFilter.addEventListener('change', (event) => {
+                state.selectedNutritionDate = event.target.value;
+                fetchNutritionPlans(); // Re-fetch and render for the new date
+            });
+
+            // Event listeners for LLM recommendations
+            getNutritionRecommendationsBtn.addEventListener('click', openNutritionRecommendationsModal);
+            closeNutritionRecommendationsModalBtn.addEventListener('click', closeNutritionRecommendationsModal);
+            okNutritionRecommendationsBtn.addEventListener('click', closeNutritionRecommendationsModal);
+
+            // New event listeners for Meal Plan from Ingredients
+            getMealPlanFromIngredientsBtn.addEventListener('click', openMealPlanModal);
+            closeMealPlanModalBtn.addEventListener('click', closeMealPlanModal);
+            cancelMealPlanBtn.addEventListener('click', closeMealPlanModal);
+            mealPlanForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const ingredients = availableIngredientsInput.value.trim();
+                if (ingredients) {
+                    submitMealPlanBtn.disabled = true;
+                    submitMealPlanBtn.innerHTML = '<div class="spinner w-5 h-5 border-2 mx-auto"></div>'; // Smaller spinner
+                    await getMealPlanFromGemini(ingredients);
+                } else {
+                    showMessageBox("Пожалуйста, введите доступные продукты.", true);
+                }
+            });
+
+
+            // --- INITIALIZATION ON DOMContentLoaded ---
+            renderWorkoutList();
+            checkAndResetWeeklyAnalytics();
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            state.selectedNutritionDate = `${year}-${month}-${day}`; // Initialize nutrition date
+            nutritionDateFilter.value = state.selectedNutritionDate;
+
+            fetchNutritionPlans(); // Initial load of nutrition plans
+            switchScreen('home-screen');
+        });
+    </script>
+</body>
+</html>
