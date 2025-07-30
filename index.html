@@ -301,7 +301,7 @@
         
         <!-- Custom Message Box -->
         <div id="message-box" class="message-box hidden">
-            <p>Пожалуйста, нажмите кнопку "Воспроизвести" на видеоплеере Rutube.</p>
+            <p>Пожалуйста, запустите видео вручную на плеере Rutube. Таймер приложения начал отсчет.</p>
         </div>
 
         <!-- Add Meal Modal -->
@@ -387,7 +387,6 @@
     <script type="module">
         // --- GLOBAL VARIABLES ---
         let chartInstance = null; // Defined globally for Chart.js instance
-        let autoSaveIntervalId = null; // Global variable for auto-save interval
 
         // --- STATE MANAGEMENT ---
         const state = {
@@ -487,7 +486,7 @@
                 { name: "Пилатес на все тело | Мягкая силовая тренировка дома 30 минут", videoId: "5a9f0a52248440cb450f838f0c9b78de" },
                 { name: "Пилатес для кора и ягодиц | Тренировка в домашних условиях | Эффективные упражнения из пилатеса", videoId: "d48775e92070136d5a68b228d9468b20" },
                 { name: "Пилатес на все тело | Спокойная тренировка в домашних условиях| 20 минут", videoId: "922f6985b0791112dbf23a765c2b2932" },
-                { name: "Пилатес для красивой и подтянутой фигуры | Мягкая силовая тренировка на все тело", videoId: "13a059fbab5bb9ddb278ca2684d00b8a" },
+                { name: "Пилатес для красивой фигуры | Приятная силовая на все тело | 13a059fbab5bb9ddb278ca2684d00b8a", videoId: "13a059fbab5bb9ddb278ca2684d00b8a" },
                 { name: "Классический Пилатес для начального уровня | Работа над осанкой, мышцами кора и дыханием", videoId: "e587a4d593305ce268150ee755e521ce" },
                 { name: "Пилатес для красивой фигуры | Приятная силовая на все тело | 15 минут", videoId: "59bbff17e58a0326cae80e2488769e95" },
                 { name: "15 MIN PILATES WORKOUT | At-home Pilates (No Equipment, No Words)", videoId: "7a00de52f254bccd9b14cc9cdd40740c" },
@@ -529,6 +528,7 @@
                 { name: "Рельефный пресс | Красивый и подтянутый живот за 15 минут в день", videoId: "dc3d003590214bfa3a60a05b785d4a1b" },
                 { name: "Тренировка для мышц кора | Комплекс упражнения от выпирающего живота", videoId: "9ecb46b1695a6219cad509b9a1ecdd2b" },
                 { name: "Тренировка для мышц тазового дна и кора с мячом | Комплекс для плоского живота", videoId: "6f5bafac20d8b8ca47ff1c872e4309fb" },
+                { name: "Тренировка для мышц кора | Занятие для красивого и подтянутого животика", videoId: "9f26439b54d007a912a6e7a672a18f92" },
                 { name: "Тренировка для мышц тазового дна и кора | Подтягиваем выпирающий животик", videoId: "5234961e5e7d2d512259850bf0f2a771" },
             ],
             "Вечерняя растяжка": [
@@ -640,7 +640,7 @@
                     components: {
                         protein: 'Тунец',
                         carbs: 'Киноа',
-                        fats: 'Oливковое масло',
+                        fats: 'Оливковое масло',
                         vegetables: 'Салат, огурцы, помидоры'
                     }
                 },
@@ -694,11 +694,6 @@
                 messageBox.classList.remove('show');
                 messageBox.style.visibility = 'hidden';
             }, 3000);
-        };
-
-        // --- ANALYTICS LOGIC FUNCTIONS (GLOBAL) ---
-        const saveAnalytics = () => {
-            localStorage.setItem('femfitAnalytics', JSON.stringify(state.analytics));
         };
 
         // --- NUTRITION LOGIC FUNCTIONS (GLOBAL) ---
@@ -852,8 +847,6 @@
                             await new Promise(resolve => setTimeout(resolve, delay));
                             retryCount++;
                             continue;
-                        } else if (response.status === 403) {
-                            throw new Error("Ошибка доступа к API (403 Forbidden). Проверьте ваш API-ключ или настройки среды.");
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -871,7 +864,6 @@
                     }
                 } catch (e) {
                     console.error("Error calling Gemini API for calorie estimation:", e);
-                    showMessageBox(`Ошибка: ${e.message}. Пожалуйста, попробуйте еще раз.`, true);
                     return 0; // Return 0 on error
                 }
             }
@@ -1080,8 +1072,6 @@ ${formattedMeals}`;
                             await new Promise(resolve => setTimeout(resolve, delay));
                             retryCount++;
                             continue;
-                        } else if (response.status === 403) {
-                            throw new Error("Ошибка доступа к API (403 Forbidden). Проверьте ваш API-ключ или настройки среды.");
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -1110,7 +1100,6 @@ ${formattedMeals}`;
                     recommendationsLoading.classList.add('hidden');
                     recommendationsError.classList.remove('hidden');
                     recommendationsError.textContent = `Ошибка: ${e.message}. Пожалуйста, попробуйте еще раз.`;
-                    recommendationsContent.classList.remove('hidden');
                     break; // Exit loop on unrecoverable error
                 }
             }
@@ -1124,7 +1113,7 @@ ${formattedMeals}`;
             mealPlanForm.reset(); // Clear previous input
             mealPlanResults.classList.add('hidden'); // Hide results area initially
             mealPlanLoading.classList.add('hidden'); // Hide loading spinner
-            mealPlanError.classList.add('hidden'); // Hide error message
+            mealPlanError.classList.add('hidden'); // Hide any previous errors
             mealPlanDisplay.innerHTML = ''; // Clear previous suggestions
         };
 
@@ -1216,8 +1205,6 @@ ${formattedMeals}`;
                             await new Promise(resolve => setTimeout(resolve, delay));
                             retryCount++;
                             continue;
-                        } else if (response.status === 403) {
-                            throw new Error("Ошибка доступа к API (403 Forbidden). Проверьте ваш API-ключ или настройки среды.");
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -1260,13 +1247,6 @@ ${formattedMeals}`;
                 submitMealPlanBtn.disabled = false;
                 submitMealPlanBtn.innerHTML = 'Получить предложения';
             }
-        };
-
-        // --- NEW: AUTO-SAVE FUNCTION ---
-        const autoSaveState = () => {
-            saveAnalytics();
-            saveNutritionPlansToLocalStorage(state.nutritionPlans);
-            // console.log("Auto-saved application state."); // Optional: for debugging
         };
 
 
@@ -1538,7 +1518,9 @@ ${formattedMeals}`;
                 }
             };
             
-            // saveAnalytics moved to global scope
+            const saveAnalytics = () => {
+                localStorage.setItem('femfitAnalytics', JSON.stringify(state.analytics));
+            };
 
             const checkAndResetWeeklyAnalytics = () => {
                 const today = new Date();
@@ -1572,7 +1554,6 @@ ${formattedMeals}`;
                 if(state.isTimerRunning) {
                     togglePlayPause();
                 }
-                logAnalytics(); // Save analytics when going back to home screen from workout
                 videoContainer.innerHTML = '';
                 switchScreen('home-screen');
             });
@@ -1638,11 +1619,8 @@ ${formattedMeals}`;
 
             fetchNutritionPlans(); // Initial load of nutrition plans
             switchScreen('home-screen');
-
-            // --- AUTO-SAVE SETUP ---
-            autoSaveIntervalId = setInterval(autoSaveState, 1000); // Save every 1 second
-            window.addEventListener('beforeunload', autoSaveState); // Save on page exit
         });
     </script>
 </body>
 </html>
+
