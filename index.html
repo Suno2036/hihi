@@ -387,6 +387,7 @@
     <script type="module">
         // --- GLOBAL VARIABLES ---
         let chartInstance = null; // Defined globally for Chart.js instance
+        let autoSaveIntervalId = null; // Global variable for auto-save interval
 
         // --- STATE MANAGEMENT ---
         const state = {
@@ -528,7 +529,6 @@
                 { name: "Рельефный пресс | Красивый и подтянутый живот за 15 минут в день", videoId: "dc3d003590214bfa3a60a05b785d4a1b" },
                 { name: "Тренировка для мышц кора | Комплекс упражнения от выпирающего живота", videoId: "9ecb46b1695a6219cad509b9a1ecdd2b" },
                 { name: "Тренировка для мышц тазового дна и кора с мячом | Комплекс для плоского живота", videoId: "6f5bafac20d8b8ca47ff1c872e4309fb" },
-                { name: "Тренировка для мышц кора | Занятие для красивого и подтянутого животика", videoId: "9f26439b54d007a912a6e7a672a18f92" },
                 { name: "Тренировка для мышц тазового дна и кора | Подтягиваем выпирающий животик", videoId: "5234961e5e7d2d512259850bf0f2a771" },
             ],
             "Вечерняя растяжка": [
@@ -640,7 +640,7 @@
                     components: {
                         protein: 'Тунец',
                         carbs: 'Киноа',
-                        fats: 'Оливковое масло',
+                        fats: 'Oливковое масло',
                         vegetables: 'Салат, огурцы, помидоры'
                     }
                 },
@@ -694,6 +694,11 @@
                 messageBox.classList.remove('show');
                 messageBox.style.visibility = 'hidden';
             }, 3000);
+        };
+
+        // --- ANALYTICS LOGIC FUNCTIONS (GLOBAL) ---
+        const saveAnalytics = () => {
+            localStorage.setItem('femfitAnalytics', JSON.stringify(state.analytics));
         };
 
         // --- NUTRITION LOGIC FUNCTIONS (GLOBAL) ---
@@ -847,6 +852,8 @@
                             await new Promise(resolve => setTimeout(resolve, delay));
                             retryCount++;
                             continue;
+                        } else if (response.status === 403) {
+                            throw new Error("Ошибка доступа к API (403 Forbidden). Проверьте ваш API-ключ или настройки среды.");
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -864,6 +871,7 @@
                     }
                 } catch (e) {
                     console.error("Error calling Gemini API for calorie estimation:", e);
+                    showMessageBox(`Ошибка: ${e.message}. Пожалуйста, попробуйте еще раз.`, true);
                     return 0; // Return 0 on error
                 }
             }
@@ -1072,6 +1080,8 @@ ${formattedMeals}`;
                             await new Promise(resolve => setTimeout(resolve, delay));
                             retryCount++;
                             continue;
+                        } else if (response.status === 403) {
+                            throw new Error("Ошибка доступа к API (403 Forbidden). Проверьте ваш API-ключ или настройки среды.");
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -1206,6 +1216,8 @@ ${formattedMeals}`;
                             await new Promise(resolve => setTimeout(resolve, delay));
                             retryCount++;
                             continue;
+                        } else if (response.status === 403) {
+                            throw new Error("Ошибка доступа к API (403 Forbidden). Проверьте ваш API-ключ или настройки среды.");
                         }
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -1248,6 +1260,13 @@ ${formattedMeals}`;
                 submitMealPlanBtn.disabled = false;
                 submitMealPlanBtn.innerHTML = 'Получить предложения';
             }
+        };
+
+        // --- NEW: AUTO-SAVE FUNCTION ---
+        const autoSaveState = () => {
+            saveAnalytics();
+            saveNutritionPlansToLocalStorage(state.nutritionPlans);
+            // console.log("Auto-saved application state."); // Optional: for debugging
         };
 
 
@@ -1519,9 +1538,7 @@ ${formattedMeals}`;
                 }
             };
             
-            const saveAnalytics = () => {
-                localStorage.setItem('femfitAnalytics', JSON.stringify(state.analytics));
-            };
+            // saveAnalytics moved to global scope
 
             const checkAndResetWeeklyAnalytics = () => {
                 const today = new Date();
@@ -1555,6 +1572,7 @@ ${formattedMeals}`;
                 if(state.isTimerRunning) {
                     togglePlayPause();
                 }
+                logAnalytics(); // Save analytics when going back to home screen from workout
                 videoContainer.innerHTML = '';
                 switchScreen('home-screen');
             });
@@ -1620,6 +1638,10 @@ ${formattedMeals}`;
 
             fetchNutritionPlans(); // Initial load of nutrition plans
             switchScreen('home-screen');
+
+            // --- AUTO-SAVE SETUP ---
+            autoSaveIntervalId = setInterval(autoSaveState, 1000); // Save every 1 second
+            window.addEventListener('beforeunload', autoSaveState); // Save on page exit
         });
     </script>
 </body>
